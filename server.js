@@ -9,7 +9,6 @@ const XLSX = require("xlsx");
 const dotenv = require("dotenv");
 dotenv.config();
 
-
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, "public"); // Files will be saved in the 'public' directory
@@ -43,10 +42,13 @@ app.get("/", (req, res) => {
 
 // Function to combine text from every two pages
 const combinePages = (text) => {
-    // console.log(text)
-    const blocks = text.split(/P R E - B I L L/);
-    // console.log(blocks)
-    return blocks.slice(1).filter(block => block.trim() !== "").map(block => "PRE-BILL" + block);
+  // console.log(text)
+  const blocks = text.split(/P R E - B I L L/);
+  // console.log(blocks)
+  return blocks
+    .slice(1)
+    .filter((block) => block.trim() !== "")
+    .map((block) => "PRE-BILL" + block);
 };
 // Function to read Excel file and convert to JSON
 function readExcelFile(filePath) {
@@ -70,10 +72,11 @@ const extractData = (combinedRecords, pdfName) => {
   const dateRegex = /Date:\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})/;
 
   combinedRecords.forEach((block, page) => {
-   
     const data = {};
     const fileMatch = block.match(fileRegex) || block.match(/File #:\s*(\S+)/);
-    const clientMatch = block.match(clientRegex) || block.match(/^\s*PRE-BILL\s*\n\s*(.*?)\s*\n/m);
+    const clientMatch =
+      block.match(clientRegex) ||
+      block.match(/^\s*PRE-BILL\s*\n\s*(.*?)\s*\n/m);
     const feesMatch = block.match(feesRegex);
     const disbursementsMatch = block.match(disbursementsRegex);
     const hstMatch = block.match(hstRegex);
@@ -92,7 +95,9 @@ const extractData = (combinedRecords, pdfName) => {
     data["Total HST On Disbursements"] = hstMatch ? hstMatch[1] : 0;
     data.Total = totalMatch ? totalMatch[1] : 0;
     data["Ar Balance"] = arBalanceMatch ? arBalanceMatch[1] : 0;
-    data.Link = `${process.env.FRONTEND_URL}?pdf=${pdfName}&page=${page * 2 + 1}`;
+    data.Link = `${process.env.FRONTEND_URL}?pdf=${pdfName}&page=${
+      page * 2 + 1
+    }`;
 
     records.push(data);
   });
@@ -113,7 +118,7 @@ app.post("/upload-xlFile", upload.single("xlFile"), async (req, res) => {
     const text = data.text;
     const combinedRecords = combinePages(text, 2);
     const JSONData = extractData(combinedRecords, pdfFile);
-  
+
     const xlsxJSONData = readExcelFile(xlFileUrl);
 
     xlsxJSONData.forEach((record) => {
@@ -124,10 +129,11 @@ app.post("/upload-xlFile", upload.single("xlFile"), async (req, res) => {
 
     // // Convert updated JSON back to XLS
     const xls = json2xls(xlsxJSONData);
-    const xlsxPath = path.join(__dirname, "public", "updatedData.xlsx");
+    const xlsxName = `${pdfFile}-updated.xlsx`;
+    const xlsxPath = path.join(__dirname, "public", xlsxName);
     fs.writeFileSync(xlsxPath, xls, "binary");
 
-    res.json({ file: file, data: JSONData });
+    res.json({ file: file, data: JSONData, xlsxURL: xlsxName });
   } catch (error) {
     console.error("Error uploading file:", error);
     res.status(500).send("Failed to upload file");
